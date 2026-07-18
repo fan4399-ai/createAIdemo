@@ -29,3 +29,5 @@ short_term_memory/
 # ---- 系统 ----
 .DS_Store
 Thumbs.db
+.idea/
+user_memory.json

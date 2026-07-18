@@ -16,6 +16,7 @@ const generating = ref(false)
 const reportMarkdown = ref('')
 const errorMsg = ref('')
 const sessionId = ref('')
+const topic = ref('')
 const connected = ref(false)
 
 const logs = ref<{ id: number; text: string; stage?: string }[]>([])
@@ -84,7 +85,7 @@ async function start() {
   sessionId.value = ''
   stages.forEach((s) => (s.status = 'pending'))
   try {
-    const sid = await startGeneration()
+    const sid = await startGeneration(topic.value.trim() || undefined)
     sessionId.value = sid
     es = connectStream(sid, onEvent, onErr)
   } catch (e: any) {
@@ -118,10 +119,20 @@ async function start() {
       <section class="hero glass">
         <div class="hero-text">
           <h1>一键生成你的 AI Agent 行业报告</h1>
-          <p class="subtitle">
-            基于多智能体（研究员 / 撰稿人 / 编辑）协作，结合实时检索，产出严谨可溯源的行业分析。
-          </p>
+        <p class="subtitle">
+          基于多智能体（研究员 / 撰稿人 / 编辑）协作，结合实时检索，产出严谨可溯源的行业分析。
+        </p>
+        <div class="topic-row">
+          <input
+            v-model="topic"
+            class="topic-input"
+            type="text"
+            :disabled="generating"
+            placeholder="输入行业主题，如：人工智能医疗、新能源汽车…"
+            @keyup.enter="start"
+          />
         </div>
+      </div>
 
         <div class="profile-chip" v-if="profile">
           <span class="chip"><b>姓名</b>{{ profile.name || '—' }}</span>

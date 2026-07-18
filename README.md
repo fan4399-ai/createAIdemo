@@ -59,12 +59,11 @@ createaidemo/
 # 安装 uv（如未安装）
 pip install uv
 
-# 在项目根目录创建虚拟环境并安装依赖
-uv venv crewai_env
-uv pip install -r <(uv pip compile pyproject.toml)   # 或直接使用现有 crewai_env
+# 在项目根目录安装全部依赖（含 ddgs、python-dotenv 等）
+uv sync
 ```
 
-> 本项目已自带 `crewai_env/` 虚拟环境，可直接用它运行；若需重建，执行 `uv sync` 即可。
+> 本项目已自带 `crewai_env/` 虚拟环境。若依赖有变动，执行 `uv sync` 即可同步；日常运行直接用现有环境即可。
 
 ### 2. 配置 `.env`
 
@@ -131,7 +130,7 @@ npm install
 ## 📝 使用流程
 
 1. 打开页面，查看基于用户画像的欢迎信息。
-2. 在输入框填写行业主题（如「人工智能医疗」），点击「开始生成报告」。
+2. 在主题输入框填写想研究的行业（如「人工智能医疗」），点击「开始生成报告」；留空则使用默认主题。
 3. 左侧「实时进度」面板会流式显示各 Agent 的工作日志。
 4. 右侧报告窗口渲染最终 Markdown 报告，超出高度可滚动查看。
 5. 点击右上角「导出报告」，选择 Word 或 Markdown 下载。

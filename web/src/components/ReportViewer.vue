@@ -10,6 +10,8 @@ const md = new MarkdownIt({
   typographer: true,
   breaks: true,
 })
+// 禁止 javascript: / data: 等危险协议的链接，降低 XSS 风险
+md.validateLink = (url: string) => !/^\s*(javascript|data):/i.test(url)
 
 const html = computed(() => (props.markdown ? md.render(props.markdown) : ''))
 </script>

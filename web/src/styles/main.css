@@ -181,6 +181,33 @@ body {
   font-size: 15px;
   line-height: 1.7;
 }
+.topic-row {
+  margin: 22px auto 0;
+  max-width: 560px;
+}
+.topic-input {
+  width: 100%;
+  padding: 13px 18px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text);
+  background: rgba(2, 6, 23, 0.45);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.topic-input::placeholder {
+  color: rgba(148, 163, 184, 0.7);
+}
+.topic-input:focus {
+  border-color: rgba(99, 102, 241, 0.7);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18);
+}
+.topic-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .profile-chip {
   display: flex;
   flex-wrap: wrap;

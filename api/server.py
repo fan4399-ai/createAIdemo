@@ -29,10 +29,15 @@ _DIST_DIR = os.path.join(_BASE_DIR, "web", "dist")
 
 app = FastAPI(title="AI Agent 行业报告生成器 API", version="0.1.0")
 
-# 开发期允许前端 dev 端口跨域；生产可收紧为具体域名
+# 开发期允许前端 dev 端口跨域；生产可通过环境变量 CORS_ORIGINS 收紧为具体域名
+# （逗号分隔，例如 CORS_ORIGINS=https://example.com）
+_ALLOWED_ORIGINS = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000",
+).split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -152,13 +157,6 @@ async def favicon():
 # ---- 托管前端构建产物（可选）----
 # 若已执行 `cd web && npm run build`，则 / 直接返回页面，无需单独跑 dev server。
 # 注意：必须在所有 /api 路由之后挂载，API 路由优先匹配。
+# StaticFiles(html=True) 会自动把 `/` 回退到 index.html，无需额外 index 路由。
 if os.path.isdir(_DIST_DIR):
-    @app.get("/")
-    async def index():
-        return Response(
-            content=open(os.path.join(_DIST_DIR, "index.html"), encoding="utf-8").read(),
-            media_type="text/html; charset=utf-8",
-        )
-
-    # 挂载静态资源（js/css/图片等）；html=True 让未知路径回退到 index.html
     app.mount("/", StaticFiles(directory=_DIST_DIR, html=True), name="static")
