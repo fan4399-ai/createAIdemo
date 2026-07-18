@@ -1,0 +1,31 @@
+# ---- 环境与依赖 ----
+.env
+.env.*
+.venv/
+venv/
+crewai_env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+ENV/
+
+# ---- 前端 ----
+node_modules/
+web/node_modules/
+web/dist/
+dist/
+*.log
+vite.log
+be.log
+be.err
+
+# ---- CrewAI 运行时记忆（自动生成）----
+long_term_memory/
+short_term_memory/
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db

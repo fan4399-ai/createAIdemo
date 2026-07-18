@@ -1,0 +1,28 @@
+[project]
+name = "createaidemo"
+version = "0.1.0"
+description = "createAiDemo using crewAI"
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "crewai[tools]==1.11.0",
+    "lancedb==0.30.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "python-docx>=1.1"
+]
+
+[project.scripts]
+createaidemo = "createaidemo.main:run"
+run_crew = "createaidemo.main:run"
+train = "createaidemo.main:train"
+replay = "createaidemo.main:replay"
+test = "createaidemo.main:test"
+run_with_trigger = "createaidemo.main:run_with_trigger"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.crewai]
+type = "crew"
