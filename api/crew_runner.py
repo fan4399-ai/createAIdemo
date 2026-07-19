@@ -10,6 +10,7 @@
 import json
 import queue
 import sys
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -48,6 +49,7 @@ class CrewRunner:
         self.events: "queue.Queue[dict]" = queue.Queue()
         self.final_markdown: str | None = None
         self.error: str | None = None
+        self.finished_at: float | None = None  # 生成完成（成功或失败）的时间戳
         self._stage_index = 0
 
     # ---------- 事件推送 ----------
@@ -143,6 +145,8 @@ class CrewRunner:
         except Exception as e:  # noqa: BLE001
             self.error = str(e)
             self._emit({"type": "error", "message": f"生成失败：{e}"})
+        finally:
+            self.finished_at = time.time()
 
     # ---------- 用户画像（供前端 Hero 展示） ----------
     @staticmethod

@@ -14,6 +14,8 @@ import asyncio
 import json
 import os
 import queue
+import time
+from contextlib import asynccontextmanager
 from typing import Dict
 
 from fastapi import FastAPI, HTTPException
@@ -27,7 +29,38 @@ from .crew_runner import CrewRunner
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DIST_DIR = os.path.join(_BASE_DIR, "web", "dist")
 
-app = FastAPI(title="AI Agent 行业报告生成器 API", version="0.1.0")
+# 已完成（成功或失败）的 session 在内存中保留的最长时间（秒）
+SESSION_TTL = 30 * 60  # 30 分钟
+
+
+async def _cleanup_loop() -> None:
+    """周期性清理已完成且超过 TTL 的 session，避免内存无限增长。"""
+    while True:
+        await asyncio.sleep(5 * 60)
+        now = time.time()
+        expired = [
+            sid
+            for sid, runner in SESSIONS.items()
+            if runner.finished_at is not None and now - runner.finished_at > SESSION_TTL
+        ]
+        for sid in expired:
+            SESSIONS.pop(sid, None)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(_cleanup_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+
+
+app = FastAPI(
+    title="AI Agent 行业报告生成器 API",
+    version="0.1.0",
+    lifespan=lifespan,
+)
 
 # 开发期允许前端 dev 端口跨域；生产可通过环境变量 CORS_ORIGINS 收紧为具体域名
 # （逗号分隔，例如 CORS_ORIGINS=https://example.com）
@@ -81,7 +114,11 @@ async def generate(topic: str | None = None):
 
 @app.get("/api/generate/stream")
 async def stream(session: str):
-    """SSE 端点：持续推送该 session 的阶段/日志/完成事件。"""
+    """SSE 端点：持续推送该 session 的阶段/日志/完成事件。
+
+    若客户端在生成完成后才连接（断线重连 / 刷新页面），会在建立连接时
+    立即补发最终的 done / error 事件，避免报告丢失。
+    """
     runner = SESSIONS.get(session)
     if not runner:
         raise HTTPException(status_code=404, detail="session not found")
@@ -89,6 +126,24 @@ async def stream(session: str):
     q: "queue.Queue[dict]" = runner.events
 
     async def event_gen():
+        # 生成已结束：直接补发最终结果（重连场景，无需再读队列）
+        if runner.final_markdown is not None:
+            yield _sse({"type": "connected", "session": session, "message": "已连接进度流"})
+            yield _sse(
+                {
+                    "type": "done",
+                    "stage": "editing",
+                    "status": "done",
+                    "message": "报告生成完成",
+                    "markdown": runner.final_markdown,
+                }
+            )
+            return
+        if runner.error is not None:
+            yield _sse({"type": "connected", "session": session, "message": "已连接进度流"})
+            yield _sse({"type": "error", "message": runner.error})
+            return
+
         yield _sse({"type": "connected", "session": session, "message": "已连接进度流"})
         while True:
             try:
@@ -97,7 +152,19 @@ async def stream(session: str):
                 # 心跳保活，避免代理/浏览器超时断开
                 yield ": keepalive\n\n"
                 # 兜底：若队列已空但生成已结束（done 事件被漏读），则退出
-                if runner.final_markdown is not None or runner.error is not None:
+                if runner.final_markdown is not None:
+                    yield _sse(
+                        {
+                            "type": "done",
+                            "stage": "editing",
+                            "status": "done",
+                            "message": "报告生成完成",
+                            "markdown": runner.final_markdown,
+                        }
+                    )
+                    break
+                if runner.error is not None:
+                    yield _sse({"type": "error", "message": runner.error})
                     break
                 continue
 

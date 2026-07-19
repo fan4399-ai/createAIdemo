@@ -28,3 +28,6 @@ build-backend = "hatchling.build"
 
 [tool.crewai]
 type = "crew"
+
+[dependency-groups]
+dev = ["pytest>=8.0"]

@@ -28,6 +28,8 @@ const stages = reactive([
 
 let es: EventSource | null = null
 let logId = 0
+let reconnectAttempts = 0
+const MAX_RECONNECT = 5
 
 onMounted(async () => {
   try {
@@ -46,6 +48,7 @@ function setStage(key: string, status: 'running' | 'done' | 'pending') {
 function onEvent(e: StreamEvent) {
   if (e.type === 'connected') {
     connected.value = true
+    reconnectAttempts = 0
     return
   }
   if (e.type === 'stage' && e.stage) {
@@ -64,8 +67,20 @@ function onEvent(e: StreamEvent) {
 }
 
 function onErr() {
-  if (generating.value) {
-    errorMsg.value = errorMsg.value || '与服务器连接中断'
+  if (!generating.value) return
+  // 生成仍在进行：尝试带退避的自动重连，避免网络抖动丢失报告
+  es?.close()
+  es = null
+  if (reconnectAttempts < MAX_RECONNECT) {
+    reconnectAttempts++
+    const delay = Math.min(1000 * 2 ** reconnectAttempts, 10000)
+    setTimeout(() => {
+      if (generating.value && sessionId.value) {
+        es = connectStream(sessionId.value, onEvent, onErr)
+      }
+    }, delay)
+  } else {
+    errorMsg.value = errorMsg.value || '与服务器连接中断，已停止重试'
     finish()
   }
 }
@@ -83,6 +98,7 @@ async function start() {
   reportMarkdown.value = ''
   logs.value = []
   sessionId.value = ''
+  reconnectAttempts = 0
   stages.forEach((s) => (s.status = 'pending'))
   try {
     const sid = await startGeneration(topic.value.trim() || undefined)
@@ -153,7 +169,7 @@ async function start() {
       <section class="layout">
         <ProgressPanel :stages="stages" :logs="logs" :generating="generating" :error="errorMsg" />
         <div class="report-wrap">
-          <ExportDrawer :markdown="reportMarkdown" :session="sessionId" :disabled="!reportMarkdown" />
+          <ExportDrawer :markdown="reportMarkdown" :session="sessionId" :topic="topic" :disabled="!reportMarkdown" />
           <ReportViewer :markdown="reportMarkdown" />
         </div>
       </section>

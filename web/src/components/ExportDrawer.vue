@@ -5,6 +5,7 @@ import { exportWord, exportMarkdown } from '../api'
 const props = defineProps<{
   markdown: string
   session: string
+  topic: string
   disabled: boolean
 }>()
 
@@ -19,15 +20,22 @@ const previewLines = computed(() => {
   return md.split('\n').filter((l) => l.trim() !== '')
 })
 
+// 基于当前主题动态生成导出标题，并过滤文件名中的非法字符
+const exportTitle = computed(() => {
+  const t = (props.topic || '').trim()
+  const base = t ? `${t}行业报告` : 'AI-Agent行业报告'
+  return base.replace(/[\\/:*?"<>|]/g, '_')
+})
+
 async function doExport(kind: 'word' | 'md') {
   if (props.disabled || busy.value || !props.markdown) return
   busy.value = true
   try {
     if (kind === 'word') {
-      await exportWord(props.markdown, 'AI-Agent行业报告')
+      await exportWord(props.markdown, exportTitle.value)
       flash.value = 'Word 已导出，开始下载 ✓'
     } else {
-      await exportMarkdown(props.session || '', 'AI-Agent行业报告')
+      await exportMarkdown(props.session || '', exportTitle.value)
       flash.value = 'Markdown 已导出，开始下载 ✓'
     }
   } catch {
