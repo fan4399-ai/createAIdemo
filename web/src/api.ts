@@ -36,6 +36,11 @@ export async function startGeneration(topic?: string): Promise<string> {
   return data.session_id
 }
 
+/** 请求取消某个正在进行的生成 */
+export async function cancelGeneration(session: string): Promise<void> {
+  await http.post('/generate/cancel', null, { params: { session } })
+}
+
 /** 建立 SSE 连接，消费实时进度流 */
 export function connectStream(
   session: string,

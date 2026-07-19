@@ -39,6 +39,10 @@ TASK_TO_STAGE = {
 }
 
 
+class _CancelSignal(Exception):
+    """在 step_callback 中抛出，用于协作式中断 CrewAI 的 kickoff。"""
+
+
 class CrewRunner:
     """一次报告生成的运行体，拥有独立的 session 与事件队列。"""
 
@@ -50,11 +54,22 @@ class CrewRunner:
         self.final_markdown: str | None = None
         self.error: str | None = None
         self.finished_at: float | None = None  # 生成完成（成功或失败）的时间戳
+        self.cancelled: bool = False  # 是否已被请求取消
         self._stage_index = 0
 
     # ---------- 事件推送 ----------
     def _emit(self, event: dict) -> None:
         self.events.put(event)
+
+    # ---------- 取消 ----------
+    def cancel(self) -> None:
+        """请求取消本次生成；真正的终止发生在下一个 step 边界。"""
+        self.cancelled = True
+
+    def _check_cancel(self, step_output=None) -> None:
+        """作为 Crew 的 step_callback：若已请求取消则抛出信号中断 kickoff。"""
+        if self.cancelled:
+            raise _CancelSignal()
 
     def _on_task(self, task_output) -> None:
         """CrewAI 每个 Task 完成后回调，发射阶段完成事件与日志片段。"""
@@ -128,8 +143,13 @@ class CrewRunner:
             crew_instance = Createaidemo()
             c = crew_instance.crew()
             c.task_callback = self._on_task
+            # 协作式取消：每个 step 后检查取消标志，命中即抛异常中断 kickoff
+            c.step_callback = self._check_cancel
 
             result = c.kickoff(inputs=inputs)
+            if self.cancelled:
+                self._emit({"type": "cancelled", "message": "已取消生成"})
+                return
             markdown = result.raw if hasattr(result, "raw") else str(result)
             self.final_markdown = markdown
 
@@ -142,7 +162,14 @@ class CrewRunner:
                     "markdown": markdown,
                 }
             )
+        except _CancelSignal:
+            # 由 step_callback 抛出，已在 cancel() 中置位；收尾即可
+            self._emit({"type": "cancelled", "message": "已取消生成"})
+            return
         except Exception as e:  # noqa: BLE001
+            if self.cancelled:
+                self._emit({"type": "cancelled", "message": "已取消生成"})
+                return
             self.error = str(e)
             self._emit({"type": "error", "message": f"生成失败：{e}"})
         finally:

@@ -112,6 +112,16 @@ async def generate(topic: str | None = None):
     return {"session_id": runner.session_id}
 
 
+@app.post("/api/generate/cancel")
+async def cancel(session: str):
+    """请求取消某个正在进行的生成；将在下一个 step 边界协作式中断。"""
+    runner = SESSIONS.get(session)
+    if not runner:
+        raise HTTPException(status_code=404, detail="session not found")
+    runner.cancel()
+    return {"status": "cancelled"}
+
+
 @app.get("/api/generate/stream")
 async def stream(session: str):
     """SSE 端点：持续推送该 session 的阶段/日志/完成事件。
@@ -142,6 +152,12 @@ async def stream(session: str):
         if runner.error is not None:
             yield _sse({"type": "connected", "session": session, "message": "已连接进度流"})
             yield _sse({"type": "error", "message": runner.error})
+            return
+
+        # 已取消（生成未成功完成也未报错）：补发 cancelled 事件
+        if runner.cancelled:
+            yield _sse({"type": "connected", "session": session, "message": "已连接进度流"})
+            yield _sse({"type": "cancelled", "message": "已取消生成"})
             return
 
         yield _sse({"type": "connected", "session": session, "message": "已连接进度流"})

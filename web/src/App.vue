@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import {
   getProfile,
   startGeneration,
+  cancelGeneration,
   connectStream,
   type Profile,
   type StreamEvent,
@@ -60,6 +61,9 @@ function onEvent(e: StreamEvent) {
   } else if (e.type === 'done') {
     reportMarkdown.value = e.markdown || ''
     finish()
+  } else if (e.type === 'cancelled') {
+    errorMsg.value = e.message || '已取消生成'
+    finish()
   } else if (e.type === 'error') {
     errorMsg.value = e.message || '生成出错'
     finish()
@@ -89,6 +93,18 @@ function finish() {
   generating.value = false
   es?.close()
   es = null
+}
+
+async function stop() {
+  if (!generating.value || !sessionId.value) return
+  try {
+    await cancelGeneration(sessionId.value)
+  } catch {
+    /* 即使后端调用失败，也按已取消处理 */
+  }
+  // 乐观更新：立即给出反馈；后端真正中断后可能再发一次 cancelled，幂等无害
+  errorMsg.value = '已取消生成'
+  finish()
 }
 
 async function start() {
@@ -157,9 +173,12 @@ async function start() {
           <span class="chip"><b>期望薪资</b>{{ profile.expected_salary || '—' }}</span>
         </div>
 
-        <button class="btn-generate" :class="{ busy: generating }" :disabled="generating" @click="start">
-          <span class="btn-ring" v-if="generating"></span>
-          {{ generating ? '正在生成…' : '开始生成报告' }}
+        <button v-if="!generating" class="btn-generate" @click="start">
+          开始生成报告
+        </button>
+        <button v-else class="btn-generate stop" @click="stop">
+          <span class="btn-ring"></span>
+          停止生成
         </button>
 
         <p class="err" v-if="errorMsg">⚠ {{ errorMsg }}</p>

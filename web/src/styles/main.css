@@ -258,6 +258,13 @@ body {
 .btn-generate.busy {
   padding-left: 52px;
 }
+.btn-generate.stop {
+  background: linear-gradient(135deg, #ef4444, #dc2626 55%, #b91c1c);
+  box-shadow: 0 10px 30px rgba(239, 68, 68, 0.45);
+}
+.btn-generate.stop:hover:not(:disabled) {
+  box-shadow: 0 14px 38px rgba(239, 68, 68, 0.6);
+}
 .btn-ring {
   position: absolute;
   left: 24px;

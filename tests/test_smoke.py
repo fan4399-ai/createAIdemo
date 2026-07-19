@@ -1,6 +1,8 @@
-"""冒烟测试：覆盖导出、用户画像解析与运行体初始化，不触发真实 LLM 调用。"""
+"""冒烟测试：覆盖导出、用户画像解析、运行体初始化与取消逻辑，不触发真实 LLM 调用。"""
 import sys
 from pathlib import Path
+
+import pytest
 
 # 确保项目根目录与 src 布局可被导入
 _ROOT = Path(__file__).resolve().parent.parent
@@ -39,3 +41,13 @@ def test_crew_runner_initialization():
     assert runner.topic == "人工智能医疗"
     assert runner.final_markdown is None
     assert runner.finished_at is None
+
+
+def test_cancel_sets_flag_and_interrupts_step():
+    runner = CrewRunner(topic="测试")
+    assert runner.cancelled is False
+    runner.cancel()
+    assert runner.cancelled is True
+    # step_callback 在取消后应抛出信号以中断 kickoff
+    with pytest.raises(Exception):
+        runner._check_cancel()
