@@ -19,6 +19,7 @@ const errorMsg = ref('')
 const sessionId = ref('')
 const topic = ref('')
 const connected = ref(false)
+const infoMsg = ref('') // 中性提示（如取消生成），与错误提示区分
 
 const logs = ref<{ id: number; text: string; stage?: string }[]>([])
 const stages = reactive([
@@ -62,7 +63,7 @@ function onEvent(e: StreamEvent) {
     reportMarkdown.value = e.markdown || ''
     finish()
   } else if (e.type === 'cancelled') {
-    errorMsg.value = e.message || '已取消生成'
+    infoMsg.value = e.message || '已取消生成'
     finish()
   } else if (e.type === 'error') {
     errorMsg.value = e.message || '生成出错'
@@ -103,7 +104,7 @@ async function stop() {
     /* 即使后端调用失败，也按已取消处理 */
   }
   // 乐观更新：立即给出反馈；后端真正中断后可能再发一次 cancelled，幂等无害
-  errorMsg.value = '已取消生成'
+  infoMsg.value = '已取消生成'
   finish()
 }
 
@@ -111,6 +112,7 @@ async function start() {
   if (generating.value) return
   generating.value = true
   errorMsg.value = ''
+  infoMsg.value = ''
   reportMarkdown.value = ''
   logs.value = []
   sessionId.value = ''
@@ -182,6 +184,7 @@ async function start() {
         </button>
 
         <p class="err" v-if="errorMsg">⚠ {{ errorMsg }}</p>
+        <p class="info" v-if="infoMsg">ℹ {{ infoMsg }}</p>
       </section>
 
       <!-- 主体：进度 + 报告 -->
@@ -189,7 +192,7 @@ async function start() {
         <ProgressPanel :stages="stages" :logs="logs" :generating="generating" :error="errorMsg" />
         <div class="report-wrap">
           <ExportDrawer :markdown="reportMarkdown" :session="sessionId" :topic="topic" :disabled="!reportMarkdown" />
-          <ReportViewer :markdown="reportMarkdown" />
+          <ReportViewer :markdown="reportMarkdown" :generating="generating" />
         </div>
       </section>
     </main>
