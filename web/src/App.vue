@@ -140,7 +140,7 @@ async function start() {
     <header class="navbar glass">
       <div class="brand">
         <div class="logo-mark">AI</div>
-        <span class="brand-name">AI Agent 行业报告生成器</span>
+        <span class="brand-name">AI Agent 行业报告生成助手</span>
       </div>
       <div class="conn" :class="{ on: connected }">
         <span class="dot"></span>
@@ -198,7 +198,7 @@ async function start() {
     </main>
 
     <footer class="footer">
-      <span>AI Agent 行业报告生成器 · 由 CrewAI + FastAPI + Vue 3 驱动</span>
+      <span>AI Agent 行业报告生成助手 · 由 CrewAI + FastAPI + Vue 3 驱动</span>
     </footer>
   </div>
 </template>
