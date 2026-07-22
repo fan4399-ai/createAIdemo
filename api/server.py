@@ -105,8 +105,8 @@ async def generate(topic: str | None = None):
     # 清洗主题：截断过长输入，避免无谓 token 消耗与超出上下文
     if topic:
         topic = topic.strip()
-        if len(topic) > 100:
-            topic = topic[:100]
+        if len(topic) > 500:
+            topic = topic[:500]
 
     # 清理过旧会话，控制内存
     if len(SESSIONS) >= MAX_SESSIONS:

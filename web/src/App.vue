@@ -161,6 +161,7 @@ async function start() {
             v-model="topic"
             class="topic-input"
             type="text"
+            maxlength="500"
             :disabled="generating"
             placeholder="输入行业主题，如：人工智能医疗、新能源汽车…"
             @keyup.enter="start"
