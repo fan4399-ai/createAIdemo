@@ -15,10 +15,12 @@ import json
 import os
 import queue
 import time
+import urllib.parse
 from contextlib import asynccontextmanager
 from typing import Dict
 
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -100,6 +102,12 @@ async def profile():
 @app.post("/api/generate")
 async def generate(topic: str | None = None):
     """启动一次报告生成，立即返回 session_id；进度通过 SSE 获取。"""
+    # 清洗主题：截断过长输入，避免无谓 token 消耗与超出上下文
+    if topic:
+        topic = topic.strip()
+        if len(topic) > 100:
+            topic = topic[:100]
+
     # 清理过旧会话，控制内存
     if len(SESSIONS) >= MAX_SESSIONS:
         oldest = next(iter(SESSIONS))
@@ -199,21 +207,30 @@ async def stream(session: str):
     )
 
 
+class ExportRequest(BaseModel):
+    """导出请求的校验模型，避免裸 dict 取值。"""
+    markdown: str
+    title: str = "报告"
+
+
 @app.post("/api/export/word")
-async def export_word(payload: dict):
+async def export_word(payload: ExportRequest):
     """复用 export_utils.export_to_word 将 Markdown 导出为 .docx。"""
-    markdown = payload.get("markdown", "")
-    title = payload.get("title", "报告")
-    if not markdown:
+    if not payload.markdown:
         raise HTTPException(status_code=400, detail="markdown 为空")
 
     from createaidemo.export_utils import export_to_word
 
-    docx_bytes = export_to_word(markdown, title)
+    docx_bytes = export_to_word(payload.markdown, payload.title)
+    # filename*=UTF-8'' 兼容非 ASCII 文件名（如中文），避免部分浏览器乱码
+    ascii_name = f"{payload.title}.docx".encode("ascii", "ignore").decode() or "report.docx"
+    encoded = urllib.parse.quote(f"{payload.title}.docx")
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{title}.docx"'},
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded}"
+        },
     )
 
 
@@ -224,10 +241,14 @@ async def export_markdown(session: str, title: str = "report"):
     markdown = runner.final_markdown if runner else None
     if not markdown:
         raise HTTPException(status_code=404, detail="未找到该会话的报告内容")
+    ascii_name = f"{title}.md".encode("ascii", "ignore").decode() or "report.md"
+    encoded = urllib.parse.quote(f"{title}.md")
     return Response(
         content=markdown,
         media_type="text/markdown; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{title}.md"'},
+        headers={
+            "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded}"
+        },
     )
 
 

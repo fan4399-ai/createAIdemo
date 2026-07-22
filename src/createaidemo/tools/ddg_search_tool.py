@@ -37,7 +37,8 @@ class DDGSearchTool(BaseTool):
                 delay = 0.3 if attempt == 0 else random.uniform(1.5, 3.0)
                 time.sleep(delay)
                 with DDGS() as ddgs:
-                    results = list(ddgs.text(query, max_results=_MAX_RESULTS))
+                    # timeout 防止网络卡住时无限阻塞生成线程（在 to_thread 中运行）
+                    results = list(ddgs.text(query, max_results=_MAX_RESULTS, timeout=10))
 
                 if results:
                     output = "\n".join(

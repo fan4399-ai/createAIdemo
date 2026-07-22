@@ -201,9 +201,11 @@ class CrewRunner:
         }
         for line in text.splitlines():
             line = line.strip()
-            if not line or "：" not in line:
+            # 兼容全角（：）与半角（:）冒号，避免画像静默失效
+            sep = "：" if "：" in line else (":" if ":" in line else None)
+            if not line or sep is None:
                 continue
-            key, _, value = line.partition("：")
+            key, _, value = line.partition(sep)
             field = mapping.get(key.strip())
             if field:
                 profile[field] = value.strip()
