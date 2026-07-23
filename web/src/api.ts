@@ -28,10 +28,14 @@ export async function getProfile(): Promise<Profile> {
   return data
 }
 
-/** 启动一次报告生成，返回 session_id；topic 为空时使用后端默认主题 */
-export async function startGeneration(topic?: string): Promise<string> {
-  const { data } = await http.post<{ session_id: string }>('/generate', null, {
-    params: topic ? { topic } : {},
+/** 启动一次报告生成，返回 session_id；topic/user_preference 为空时由后端回退默认 */
+export async function startGeneration(
+  topic?: string,
+  userPreference?: string,
+): Promise<string> {
+  const { data } = await http.post<{ session_id: string }>('/generate', {
+    topic: topic ?? null,
+    user_preference: userPreference ?? null,
   })
   return data.session_id
 }

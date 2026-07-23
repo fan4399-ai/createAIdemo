@@ -99,9 +99,16 @@ async def profile():
     return CrewRunner.load_profile()
 
 
+class GenerateRequest(BaseModel):
+    """生成请求：行业主题与（可选）用户偏好文本。"""
+    topic: str | None = None
+    user_preference: str | None = None
+
+
 @app.post("/api/generate")
-async def generate(topic: str | None = None):
+async def generate(payload: GenerateRequest):
     """启动一次报告生成，立即返回 session_id；进度通过 SSE 获取。"""
+    topic = payload.topic
     # 清洗主题：截断过长输入，避免无谓 token 消耗与超出上下文
     if topic:
         topic = topic.strip()
@@ -113,7 +120,11 @@ async def generate(topic: str | None = None):
         oldest = next(iter(SESSIONS))
         SESSIONS.pop(oldest, None)
 
-    runner = CrewRunner(topic=topic) if topic else CrewRunner()
+    runner = (
+        CrewRunner(topic=topic, user_preference=payload.user_preference)
+        if topic
+        else CrewRunner(user_preference=payload.user_preference)
+    )
     SESSIONS[runner.session_id] = runner
     # 在后台线程运行同步的 CrewAI kickoff，不阻塞事件循环
     asyncio.create_task(asyncio.to_thread(runner._run))

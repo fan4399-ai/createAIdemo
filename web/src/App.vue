@@ -21,6 +21,16 @@ const topic = ref('')
 const connected = ref(false)
 const infoMsg = ref('') // 中性提示（如取消生成），与错误提示区分
 
+// 用户偏好表单（可输入，预填默认画像）；仅本次生成生效
+const prefs = reactive({
+  name: '',
+  career: '',
+  expected_salary: '',
+  interest: '',
+  location: '',
+})
+const showPrefs = ref(false)
+
 const logs = ref<{ id: number; text: string; stage?: string }[]>([])
 const stages = reactive([
   { key: 'research', label: '研究', status: 'pending' },
@@ -37,10 +47,29 @@ onMounted(async () => {
   try {
     profile.value = await getProfile()
     connected.value = true
+    // 预填偏好表单：以默认画像为初始值，用户可修改
+    if (profile.value) {
+      prefs.name = profile.value.name || ''
+      prefs.career = profile.value.career || ''
+      prefs.expected_salary = profile.value.expected_salary || ''
+      prefs.interest = profile.value.interest || ''
+      prefs.location = profile.value.location || ''
+    }
   } catch {
     connected.value = false
   }
 })
+
+// 将偏好表单拼装为与 knowledge/user_preference.txt 同格式的文本；全空则返回 undefined
+function buildPreference(): string | undefined {
+  const lines: string[] = []
+  if (prefs.name.trim()) lines.push(`用户姓名：${prefs.name.trim()}`)
+  if (prefs.career.trim()) lines.push(`用户职业：${prefs.career.trim()}`)
+  if (prefs.expected_salary.trim()) lines.push(`用户期望薪资：${prefs.expected_salary.trim()}`)
+  if (prefs.interest.trim()) lines.push(`用户兴趣：${prefs.interest.trim()}`)
+  if (prefs.location.trim()) lines.push(`用户所在地：${prefs.location.trim()}`)
+  return lines.length ? lines.join('\n') : undefined
+}
 
 function setStage(key: string, status: 'running' | 'done' | 'pending') {
   const s = stages.find((x) => x.key === key)
@@ -119,7 +148,7 @@ async function start() {
   reconnectAttempts = 0
   stages.forEach((s) => (s.status = 'pending'))
   try {
-    const sid = await startGeneration(topic.value.trim() || undefined)
+    const sid = await startGeneration(topic.value.trim() || undefined, buildPreference())
     sessionId.value = sid
     es = connectStream(sid, onEvent, onErr)
   } catch (e: any) {
@@ -167,6 +196,45 @@ async function start() {
             @keyup.enter="start"
           />
         </div>
+
+        <div class="prefs-row">
+          <button
+            class="prefs-toggle"
+            :class="{ active: showPrefs }"
+            :disabled="generating"
+            @click="showPrefs = !showPrefs"
+          >
+            <span class="caret">{{ showPrefs ? '▾' : '▸' }}</span>
+            自定义生成偏好（可选）
+          </button>
+          <transition name="fade">
+            <div v-if="showPrefs" class="prefs-panel">
+              <div class="prefs-grid">
+                <label class="pref-field">
+                  <span>姓名</span>
+                  <input v-model="prefs.name" maxlength="40" placeholder="如：张三" :disabled="generating" />
+                </label>
+                <label class="pref-field">
+                  <span>职业</span>
+                  <input v-model="prefs.career" maxlength="60" placeholder="如：后端工程师" :disabled="generating" />
+                </label>
+                <label class="pref-field">
+                  <span>期望薪资</span>
+                  <input v-model="prefs.expected_salary" maxlength="40" placeholder="如：25k-35k" :disabled="generating" />
+                </label>
+                <label class="pref-field">
+                  <span>兴趣</span>
+                  <input v-model="prefs.interest" maxlength="80" placeholder="如：AI 编程" :disabled="generating" />
+                </label>
+                <label class="pref-field">
+                  <span>所在地</span>
+                  <input v-model="prefs.location" maxlength="40" placeholder="如：上海" :disabled="generating" />
+                </label>
+              </div>
+              <p class="prefs-hint">留空字段将沿用默认画像（knowledge/user_preference.txt），仅本次生成生效。</p>
+            </div>
+          </transition>
+        </div>
       </div>
 
         <div class="profile-chip" v-if="profile">
@@ -203,3 +271,88 @@ async function start() {
     </footer>
   </div>
 </template>
+
+<style scoped>
+.prefs-row {
+  margin: 14px auto 0;
+  max-width: 560px;
+  text-align: left;
+}
+.prefs-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 4px 2px;
+  transition: color 0.15s ease;
+}
+.prefs-toggle:hover:not(:disabled),
+.prefs-toggle.active {
+  color: var(--primary-3);
+}
+.prefs-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.prefs-toggle .caret {
+  font-size: 11px;
+}
+.prefs-panel {
+  margin-top: 10px;
+  padding: 16px;
+  background: rgba(2, 6, 23, 0.4);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+}
+.prefs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.pref-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.pref-field input {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: rgba(2, 6, 23, 0.5);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.pref-field input::placeholder {
+  color: rgba(148, 163, 184, 0.6);
+}
+.pref-field input:focus {
+  border-color: rgba(99, 102, 241, 0.7);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18);
+}
+.pref-field input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.prefs-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: rgba(148, 163, 184, 0.75);
+  line-height: 1.6;
+}
+@media (max-width: 640px) {
+  .prefs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

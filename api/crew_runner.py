@@ -46,9 +46,10 @@ class _CancelSignal(Exception):
 class CrewRunner:
     """一次报告生成的运行体，拥有独立的 session 与事件队列。"""
 
-    def __init__(self, topic: str = DEFAULT_TOPIC):
+    def __init__(self, topic: str = DEFAULT_TOPIC, user_preference: str | None = None):
         self.session_id = uuid.uuid4().hex
         self.topic = topic
+        self.user_preference = user_preference
         # 线程安全的事件队列（跨线程由 asyncio.to_thread 消费）
         self.events: "queue.Queue[dict]" = queue.Queue()
         self.final_markdown: str | None = None
@@ -118,10 +119,14 @@ class CrewRunner:
     # ---------- 主流程 ----------
     def _run(self) -> None:
         try:
-            try:
-                user_pref = KNOWLEDGE_FILE.read_text(encoding="utf-8").strip()
-            except FileNotFoundError:
-                user_pref = "未提供用户偏好。"
+            # 优先使用前端传入的偏好；未传则回退到 knowledge 文件
+            if self.user_preference is not None:
+                user_pref = self.user_preference.strip()
+            else:
+                try:
+                    user_pref = KNOWLEDGE_FILE.read_text(encoding="utf-8").strip()
+                except FileNotFoundError:
+                    user_pref = "未提供用户偏好。"
 
             inputs = {
                 "topic": self.topic,
