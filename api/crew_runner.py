@@ -23,6 +23,10 @@ if str(_SRC) not in sys.path:
 
 from createaidemo.crew import Createaidemo  # noqa: E402
 
+# CrewAI 官方提供的控制台输出抑制开关（基于 ContextVar），用于「停止生成」时
+# 屏蔽 Task/Crew Failure Panel 与 [CrewAIEventsBus] Warning，而正常生成时正常显示。
+from crewai.events.utils.console_formatter import set_suppress_console_output  # noqa: E402
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 KNOWLEDGE_FILE = PROJECT_ROOT / "knowledge" / "user_preference.txt"
 
@@ -42,6 +46,17 @@ TASK_TO_STAGE = {
 
 class _CancelSignal(Exception):
     """在 step_callback 中抛出，用于协作式中断 CrewAI 的 kickoff。"""
+
+
+class _SuppressWhenCancelled:
+    """作为 crewai 的 suppress 标志：其真值随 ``runner.cancelled`` 动态变化，
+    实现「正常生成显示、取消后抑制」的 console 输出控制。"""
+
+    def __init__(self, runner: "CrewRunner"):
+        self._runner = runner
+
+    def __bool__(self) -> bool:
+        return self._runner.cancelled
 
 
 class CrewRunner:
@@ -153,7 +168,18 @@ class CrewRunner:
             # 协作式取消：每个 step 后检查取消标志，命中即抛异常中断 kickoff
             c.step_callback = self._check_cancel
 
-            result = c.kickoff(inputs=inputs)
+            # 取消感知的 console 抑制：正常生成时（self.cancelled 为 False）CrewAI
+            # 原生输出（verbose / 进度）照常打印到终端；用户点击「停止生成」置位
+            # self.cancelled 后，CrewAI 内部的 Task/Crew Failure Panel 与
+            # [CrewAIEventsBus] Warning 将被抑制，不再刷屏。
+            # set_suppress_console_output 基于 ContextVar，必须在运行 kickoff 的
+            # 同一线程内设置才生效（当前在 daemon 子线程中执行）。
+            set_suppress_console_output(_SuppressWhenCancelled(self))
+            try:
+                result = c.kickoff(inputs=inputs)
+            finally:
+                # 该线程结束后 context 自动释放；这里显式复位避免泄漏
+                set_suppress_console_output(False)
             if self.cancelled:
                 self._emit({"type": "cancelled", "message": "已取消生成"})
                 return
