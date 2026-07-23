@@ -7,13 +7,9 @@
 - `kickoff()` 为同步阻塞调用，由上层用 `asyncio.to_thread` 包裹，
   事件队列跨线程传递进度。
 """
-import contextlib
-import io
 import json
-import logging
 import queue
 import sys
-import threading
 import time
 import uuid
 from datetime import datetime
@@ -61,20 +57,10 @@ class CrewRunner:
         self.finished_at: float | None = None  # 生成完成（成功或失败）的时间戳
         self.cancelled: bool = False  # 是否已被请求取消
         self._stage_index = 0
-        self.thread: "threading.Thread | None" = None  # 运行 _run 的后台线程，供 shutdown 时 join
 
     # ---------- 事件推送 ----------
     def _emit(self, event: dict) -> None:
         self.events.put(event)
-        # 终端精简进度：用原始 stdout 绕过 kickoff 期间的重定向，
-        # 让本地开发时能在终端看到生成进度；而 CrewAI 原生 verbose
-        # （含取消时的 Task/Crew Failure Panel 噪音）仍被静默丢弃。
-        t = event.get("type")
-        if t in ("stage", "log", "done", "cancelled", "error"):
-            try:
-                print(f"[crew {self.session_id[:8]}] {event.get('message', '')}", file=sys.__stdout__)
-            except Exception:
-                pass
 
     # ---------- 取消 ----------
     def cancel(self) -> None:
@@ -133,13 +119,6 @@ class CrewRunner:
     # ---------- 主流程 ----------
     def _run(self) -> None:
         try:
-            # 抑制 CrewAI 事件总线等噪音日志（如 Event pairing mismatch 警告）。
-            # 真实错误由下方 try/except 捕获，并以 SSE error 事件上报前端，
-            # 不应再刷到后端控制台。
-            for _name in list(logging.root.manager.loggerDict):
-                if _name == "crewai" or _name.startswith("crewai."):
-                    logging.getLogger(_name).setLevel(logging.ERROR)
-
             # 优先使用前端传入的偏好；未传则回退到 knowledge 文件
             if self.user_preference is not None:
                 user_pref = self.user_preference.strip()
@@ -172,13 +151,7 @@ class CrewRunner:
             # 协作式取消：每个 step 后检查取消标志，命中即抛异常中断 kickoff
             c.step_callback = self._check_cancel
 
-            # CrewAI 内部会把失败/警告 Panel（rich 输出、[CrewAIEventsBus] 等）
-            # 直接 print 到控制台；取消时它还会被误判为"任务失败"而刷屏。
-            # 这些与前端展示无关（进度由 SSE 提供），故在 kickoff 期间把标准
-            # 输出/错误重定向到内存缓冲，保持后端控制台干净。缓冲内容直接丢弃。
-            _sink = io.StringIO()
-            with contextlib.redirect_stdout(_sink), contextlib.redirect_stderr(_sink):
-                result = c.kickoff(inputs=inputs)
+            result = c.kickoff(inputs=inputs)
             if self.cancelled:
                 self._emit({"type": "cancelled", "message": "已取消生成"})
                 return
