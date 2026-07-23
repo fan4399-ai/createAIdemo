@@ -28,7 +28,7 @@ class Createaidemo():
             # 单次 LLM 请求超时：防止某个调用永久挂起导致 cancel 后 CrewAI
             # 线程迟迟不结束、进程退出被卡住。超时后异常回到 step 边界，
             # 协作式取消即可生效。
-            request_timeout=120,
+            timeout=120,
         )
         self.search_tool = DDGSearchTool()  # 初始化
 
