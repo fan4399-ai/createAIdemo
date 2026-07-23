@@ -14,6 +14,7 @@ import asyncio
 import json
 import os
 import queue
+import threading
 import time
 import urllib.parse
 from contextlib import asynccontextmanager
@@ -56,6 +57,16 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         task.cancel()
+        # 主动取消所有仍在运行的生成，避免进程退出时 CrewAI 后台线程仍在
+        # 占用已关闭的事件循环/API，造成 "cannot schedule new futures after shutdown"
+        # 卡顿与报错。
+        for r in SESSIONS.values():
+            if r.finished_at is None:
+                r.cancel()
+        # 等待线程结束（最多 5s）；超时则由 daemon 线程随进程退出兜底，不再卡住。
+        for r in SESSIONS.values():
+            if r.thread is not None:
+                r.thread.join(timeout=5)
 
 
 app = FastAPI(
@@ -126,8 +137,14 @@ async def generate(payload: GenerateRequest):
         else CrewRunner(user_preference=payload.user_preference)
     )
     SESSIONS[runner.session_id] = runner
-    # 在后台线程运行同步的 CrewAI kickoff，不阻塞事件循环
-    asyncio.create_task(asyncio.to_thread(runner._run))
+    # 在守护线程中运行同步的 CrewAI kickoff：
+    # - 不阻塞事件循环；
+    # - daemon=True 确保进程退出（如 Ctrl+C）时不会被该线程卡住；
+    # - 记录线程引用，供服务关闭时主动取消并等待其结束。
+    runner.thread = threading.Thread(
+        target=runner._run, daemon=True, name=f"crew-{runner.session_id[:8]}"
+    )
+    runner.thread.start()
     return {"session_id": runner.session_id}
 
 
