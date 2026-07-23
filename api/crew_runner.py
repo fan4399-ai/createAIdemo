@@ -13,6 +13,7 @@ import json
 import logging
 import queue
 import sys
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -60,6 +61,7 @@ class CrewRunner:
         self.finished_at: float | None = None  # 生成完成（成功或失败）的时间戳
         self.cancelled: bool = False  # 是否已被请求取消
         self._stage_index = 0
+        self.thread: "threading.Thread | None" = None  # 运行 _run 的后台线程，供 shutdown 时 join
 
     # ---------- 事件推送 ----------
     def _emit(self, event: dict) -> None:
