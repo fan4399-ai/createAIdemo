@@ -39,6 +39,29 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ---------- 全局滚动条（深色协调） ---------- */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.35) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+  background-clip: content-box;
+}
+
 /* ---------- 背景光晕 ---------- */
 .app-shell {
   position: relative;
@@ -82,6 +105,16 @@ body {
   0%, 100% { transform: translateY(0) translateX(0); }
   50% { transform: translateY(30px) translateX(20px); }
 }
+
+/* ---------- 入场动画 ---------- */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.navbar { animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.hero { animation: fadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both; }
+.layout { animation: fadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.14s both; }
+.footer { animation: fadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.22s both; }
 
 /* ---------- 玻璃面板 ---------- */
 .glass {
@@ -162,9 +195,53 @@ body {
 
 /* ---------- Hero ---------- */
 .hero {
-  padding: 30px 32px;
+  position: relative;
+  overflow: hidden;
+  padding: 34px 32px 30px;
   text-align: center;
   margin-bottom: 22px;
+}
+/* Hero 内部光晕与顶部高光，置于内容之下 */
+.hero > * {
+  position: relative;
+  z-index: 1;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 560px;
+  height: 220px;
+  background: radial-gradient(closest-side, rgba(99, 102, 241, 0.28), transparent 70%);
+  filter: blur(18px);
+  z-index: 0;
+  pointer-events: none;
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  z-index: 0;
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-block;
+  margin-bottom: 16px;
+  padding: 5px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.14);
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  border-radius: 999px;
+  box-shadow: inset 0 0 12px rgba(99, 102, 241, 0.15);
 }
 .hero-text h1 {
   font-size: 28px;
@@ -208,12 +285,33 @@ body {
   opacity: 0.6;
   cursor: not-allowed;
 }
-.profile-chip {
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 22px 0 26px;
+}
+.avatar {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 19px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2) 55%, var(--primary-3));
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+}
+.chips {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
-  margin: 20px 0 24px;
 }
 .chip {
   font-size: 13px;
@@ -222,6 +320,12 @@ body {
   border: 1px solid rgba(99, 102, 241, 0.3);
   padding: 7px 14px;
   border-radius: 999px;
+  transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+}
+.chip:hover {
+  transform: translateY(-2px);
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(129, 140, 248, 0.5);
 }
 .chip b {
   color: var(--primary-3);
@@ -304,9 +408,12 @@ body {
   align-items: center;
   gap: 10px;
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 600;
   margin-bottom: 18px;
-  color: var(--text);
+  background: linear-gradient(120deg, #fff, #c7d2fe);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .title-bar {
   width: 4px;
@@ -670,6 +777,8 @@ body {
 }
 
 .report-card {
+  position: relative;
+  overflow: hidden;
   background: #f8fafc;
   border-radius: var(--radius);
   height: calc(100vh - 240px);
@@ -677,9 +786,19 @@ body {
   max-height: 820px;
   padding: 28px 34px;
   color: #1e293b;
-  box-shadow: 0 10px 40px rgba(2, 6, 23, 0.45);
+  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.5);
   display: flex;
   flex-direction: column;
+}
+.report-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-2), var(--primary-3));
+  z-index: 2;
 }
 /* 报告内容可滚动区域 */
 .report-scroll {
@@ -968,7 +1087,16 @@ body {
     width: 100%;
     margin: 0 auto;
   }
-  .profile-chip {
+  .profile-card {
+    gap: 12px;
+    margin: 18px 0 22px;
+  }
+  .avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 17px;
+  }
+  .chips {
     gap: 8px;
   }
   .chip {

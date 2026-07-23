@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
   getProfile,
   startGeneration,
@@ -30,6 +30,12 @@ const prefs = reactive({
   location: '',
 })
 const showPrefs = ref(false)
+
+// 用户头像首字（取姓名首字符，大写）
+const avatarInitial = computed(() => {
+  const name = profile.value?.name || ''
+  return name.trim().charAt(0).toUpperCase() || '?'
+})
 
 const logs = ref<{ id: number; text: string; stage?: string }[]>([])
 const stages = reactive([
@@ -181,6 +187,7 @@ async function start() {
       <!-- 控制区 Hero -->
       <section class="hero glass">
         <div class="hero-text">
+          <span class="hero-badge">✦ 多智能体协作 · 实时检索增强</span>
           <h1>一键生成你的 AI Agent 行业报告</h1>
         <p class="subtitle">
           基于多智能体（研究员 / 撰稿人 / 编辑）协作，结合实时检索，产出严谨可溯源的行业分析。
@@ -237,11 +244,14 @@ async function start() {
         </div>
       </div>
 
-        <div class="profile-chip" v-if="profile">
-          <span class="chip"><b>姓名</b>{{ profile.name || '—' }}</span>
-          <span class="chip"><b>地区</b>{{ profile.location || '—' }}</span>
-          <span class="chip"><b>兴趣</b>{{ profile.interest || '—' }}</span>
-          <span class="chip"><b>期望薪资</b>{{ profile.expected_salary || '—' }}</span>
+        <div class="profile-card" v-if="profile">
+          <div class="avatar">{{ avatarInitial }}</div>
+          <div class="chips">
+            <span class="chip"><b>姓名</b>{{ profile.name || '—' }}</span>
+            <span class="chip"><b>地区</b>{{ profile.location || '—' }}</span>
+            <span class="chip"><b>兴趣</b>{{ profile.interest || '—' }}</span>
+            <span class="chip"><b>期望薪资</b>{{ profile.expected_salary || '—' }}</span>
+          </div>
         </div>
 
         <button v-if="!generating" class="btn-generate" @click="start">
