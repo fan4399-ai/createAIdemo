@@ -790,21 +790,25 @@ html {
   display: flex;
   flex-direction: column;
 }
-.report-card::before,
-.report-card::after {
+.report-card::before {
   content: '';
   position: absolute;
+  top: 0;
   left: 0;
   right: 0;
   height: 4px;
   background: linear-gradient(90deg, var(--primary), var(--primary-2), var(--primary-3));
   z-index: 2;
 }
-.report-card::before {
-  top: 0;
-}
 .report-card::after {
+  content: '';
+  position: absolute;
   bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #e2e8f0;
+  z-index: 2;
 }
 /* 报告内容可滚动区域 */
 .report-scroll {
