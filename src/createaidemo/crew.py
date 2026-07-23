@@ -24,7 +24,7 @@ class Createaidemo():
             base_url=os.getenv("OPENAI_API_BASE", "https://api.deepseek.com/v1"),
             api_key=os.getenv("OPENAI_API_KEY"),
             temperature=0.7,
-            max_tokens=4000
+            max_tokens=8000
         )
         self.search_tool = DDGSearchTool()  # 初始化
 
@@ -76,7 +76,6 @@ class Createaidemo():
     def editing_task(self) -> Task:
         return Task(
             config=self.tasks_config['editing_task'],  # type: ignore
-            output_file=str(self.output_file)   # 使用绝对路径
         )
 
     @crew
