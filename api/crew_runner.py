@@ -7,7 +7,10 @@
 - `kickoff()` 为同步阻塞调用，由上层用 `asyncio.to_thread` 包裹，
   事件队列跨线程传递进度。
 """
+import contextlib
+import io
 import json
+import logging
 import queue
 import sys
 import time
@@ -119,6 +122,13 @@ class CrewRunner:
     # ---------- 主流程 ----------
     def _run(self) -> None:
         try:
+            # 抑制 CrewAI 事件总线等噪音日志（如 Event pairing mismatch 警告）。
+            # 真实错误由下方 try/except 捕获，并以 SSE error 事件上报前端，
+            # 不应再刷到后端控制台。
+            for _name in list(logging.root.manager.loggerDict):
+                if _name == "crewai" or _name.startswith("crewai."):
+                    logging.getLogger(_name).setLevel(logging.ERROR)
+
             # 优先使用前端传入的偏好；未传则回退到 knowledge 文件
             if self.user_preference is not None:
                 user_pref = self.user_preference.strip()
@@ -151,7 +161,13 @@ class CrewRunner:
             # 协作式取消：每个 step 后检查取消标志，命中即抛异常中断 kickoff
             c.step_callback = self._check_cancel
 
-            result = c.kickoff(inputs=inputs)
+            # CrewAI 内部会把失败/警告 Panel（rich 输出、[CrewAIEventsBus] 等）
+            # 直接 print 到控制台；取消时它还会被误判为"任务失败"而刷屏。
+            # 这些与前端展示无关（进度由 SSE 提供），故在 kickoff 期间把标准
+            # 输出/错误重定向到内存缓冲，保持后端控制台干净。缓冲内容直接丢弃。
+            _sink = io.StringIO()
+            with contextlib.redirect_stdout(_sink), contextlib.redirect_stderr(_sink):
+                result = c.kickoff(inputs=inputs)
             if self.cancelled:
                 self._emit({"type": "cancelled", "message": "已取消生成"})
                 return
