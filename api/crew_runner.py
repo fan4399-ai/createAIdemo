@@ -66,6 +66,15 @@ class CrewRunner:
     # ---------- 事件推送 ----------
     def _emit(self, event: dict) -> None:
         self.events.put(event)
+        # 终端精简进度：用原始 stdout 绕过 kickoff 期间的重定向，
+        # 让本地开发时能在终端看到生成进度；而 CrewAI 原生 verbose
+        # （含取消时的 Task/Crew Failure Panel 噪音）仍被静默丢弃。
+        t = event.get("type")
+        if t in ("stage", "log", "done", "cancelled", "error"):
+            try:
+                print(f"[crew {self.session_id[:8]}] {event.get('message', '')}", file=sys.__stdout__)
+            except Exception:
+                pass
 
     # ---------- 取消 ----------
     def cancel(self) -> None:
